@@ -80,7 +80,7 @@ services:
       CLAUDE_MEM_CREDENTIALS_FILE: /run/secrets/claude-mem-credentials
     volumes:
       - claude-mem-data:/data/claude-mem
-      - ${CREDENTIALS_FILE}:/run/secrets/claude-mem-credentials:ro
+      - /opt/claude-mem/credentials.json:/run/secrets/claude-mem-credentials:ro
 
 volumes:
   claude-mem-data:
