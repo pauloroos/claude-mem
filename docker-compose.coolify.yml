@@ -46,6 +46,8 @@ services:
       CLAUDE_MEM_PUBLIC_URL: https://claude-mem.roosdatalabs.com
       CLAUDE_MEM_USAGE_METERING: "1"
       CLAUDE_MEM_RATE_LIMIT_PER_MIN: "300"
+    expose:
+      - "37877"
     volumes:
       - claude-mem-data:/data/claude-mem
     healthcheck:
