@@ -43,7 +43,7 @@ services:
       CLAUDE_MEM_AUTH_MODE: api-key
       CLAUDE_MEM_CHROMA_ENABLED: "false"
       CLAUDE_MEM_GENERATION_DISABLED: "true"
-      CLAUDE_MEM_PUBLIC_URL: https://claude-men.roosdatalabs.com
+      CLAUDE_MEM_PUBLIC_URL: https://claude-mem.roosdatalabs.com
       CLAUDE_MEM_USAGE_METERING: "1"
       CLAUDE_MEM_RATE_LIMIT_PER_MIN: "300"
     volumes:
