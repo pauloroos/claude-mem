@@ -1,0 +1,86 @@
+# Implantação da tag oficial v13.28.0 no Coolify (VPS Oracle). Único arquivo que
+# difere da tag. Postgres é externo (claude-mem-pg); porta só no IP Tailscale.
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: [valkey-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory-policy, noeviction]
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  claude-mem-server:
+    build:
+      context: .
+      dockerfile: docker/claude-mem/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      valkey:
+        condition: service_healthy
+    environment:
+      CLAUDE_MEM_CONTAINER_MODE: server
+      CLAUDE_MEM_DOCKER: "1"
+      CLAUDE_MEM_RUNTIME: server-beta
+      CLAUDE_MEM_HOST: 0.0.0.0
+      CLAUDE_MEM_SERVER_HOST: 0.0.0.0
+      CLAUDE_MEM_SERVER_PORT: "37877"
+      CLAUDE_MEM_WORKER_HOST: 0.0.0.0
+      CLAUDE_MEM_WORKER_PORT: "37877"
+      CLAUDE_MEM_DATA_DIR: /data/claude-mem
+      CLAUDE_MEM_QUEUE_ENGINE: bullmq
+      CLAUDE_MEM_REDIS_URL: redis://valkey:6379
+      CLAUDE_MEM_REDIS_MODE: docker
+      CLAUDE_MEM_SERVER_DATABASE_URL: ${CLAUDE_MEM_SERVER_DATABASE_URL:?required}
+      CLAUDE_MEM_AUTH_MODE: api-key
+      CLAUDE_MEM_CHROMA_ENABLED: "false"
+      CLAUDE_MEM_GENERATION_DISABLED: "true"
+      CLAUDE_MEM_PUBLIC_URL: http://100.90.191.41:37877
+      CLAUDE_MEM_USAGE_METERING: "1"
+      CLAUDE_MEM_RATE_LIMIT_PER_MIN: "300"
+    ports:
+      - "${HOST_TAILNET_IP:?defina o IP Tailscale do host}:37877:37877"
+    volumes:
+      - claude-mem-data:/data/claude-mem
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:37877/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  claude-mem-worker:
+    build:
+      context: .
+      dockerfile: docker/claude-mem/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      valkey:
+        condition: service_healthy
+      claude-mem-server:
+        condition: service_healthy
+    environment:
+      CLAUDE_MEM_CONTAINER_MODE: worker
+      CLAUDE_MEM_DOCKER: "1"
+      CLAUDE_MEM_RUNTIME: server-beta
+      CLAUDE_MEM_DATA_DIR: /data/claude-mem
+      CLAUDE_MEM_QUEUE_ENGINE: bullmq
+      CLAUDE_MEM_REDIS_URL: redis://valkey:6379
+      CLAUDE_MEM_REDIS_MODE: docker
+      CLAUDE_MEM_SERVER_DATABASE_URL: ${CLAUDE_MEM_SERVER_DATABASE_URL:?required}
+      CLAUDE_MEM_AUTH_MODE: api-key
+      CLAUDE_MEM_CHROMA_ENABLED: "false"
+      CLAUDE_MEM_SERVER_PROVIDER: openrouter
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?required}
+      CLAUDE_MEM_OPENROUTER_BASE_URL: https://omniroute.roosdatalabs.com/v1
+      CLAUDE_MEM_OPENROUTER_APP_NAME: claude-mem-vps
+      CLAUDE_MEM_SERVER_MODEL: mem
+    volumes:
+      - claude-mem-data:/data/claude-mem
+
+volumes:
+  claude-mem-data:
+  valkey-data:
