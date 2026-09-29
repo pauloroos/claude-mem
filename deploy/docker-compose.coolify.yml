@@ -1,14 +1,18 @@
 # Implantação da tag oficial v13.28.0 no Coolify (VPS Oracle). Único arquivo que
 # difere da tag. Postgres é externo (claude-mem-pg); porta só no IP Tailscale.
 services:
-  valkey:
+  # Nome exclusivo: os aliases de serviço entram na rede compartilhada `coolify` (connect_to_docker_network).
+  claude-mem-valkey:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
-    command: [valkey-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory-policy, noeviction]
+    # Senha obrigatória: a rede `coolify` é compartilhada com apps públicos e a fila leva o conteúdo das sessões.
+    command: [valkey-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory-policy, noeviction, --requirepass, "${VALKEY_PASSWORD:?defina VALKEY_PASSWORD}"]
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?defina VALKEY_PASSWORD}
     volumes:
       - valkey-data:/data
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -19,7 +23,7 @@ services:
       dockerfile: docker/claude-mem/Dockerfile
     restart: unless-stopped
     depends_on:
-      valkey:
+      claude-mem-valkey:
         condition: service_healthy
     environment:
       CLAUDE_MEM_CONTAINER_MODE: server
@@ -32,7 +36,7 @@ services:
       CLAUDE_MEM_WORKER_PORT: "37877"
       CLAUDE_MEM_DATA_DIR: /data/claude-mem
       CLAUDE_MEM_QUEUE_ENGINE: bullmq
-      CLAUDE_MEM_REDIS_URL: redis://valkey:6379
+      CLAUDE_MEM_REDIS_URL: redis://:${VALKEY_PASSWORD:?defina VALKEY_PASSWORD}@claude-mem-valkey:6379
       CLAUDE_MEM_REDIS_MODE: docker
       # Nome da fila BullMQ fixo nos dois: o padrão é derivado de CLAUDE_MEM_WORKER_PORT, que só o
       # servidor define — sem isso o worker escuta outra fila e nada é gerado (achado em 29/09).
@@ -61,7 +65,7 @@ services:
       dockerfile: docker/claude-mem/Dockerfile
     restart: unless-stopped
     depends_on:
-      valkey:
+      claude-mem-valkey:
         condition: service_healthy
       claude-mem-server:
         condition: service_healthy
@@ -71,7 +75,7 @@ services:
       CLAUDE_MEM_RUNTIME: server-beta
       CLAUDE_MEM_DATA_DIR: /data/claude-mem
       CLAUDE_MEM_QUEUE_ENGINE: bullmq
-      CLAUDE_MEM_REDIS_URL: redis://valkey:6379
+      CLAUDE_MEM_REDIS_URL: redis://:${VALKEY_PASSWORD:?defina VALKEY_PASSWORD}@claude-mem-valkey:6379
       CLAUDE_MEM_REDIS_MODE: docker
       # Nome da fila BullMQ fixo nos dois: o padrão é derivado de CLAUDE_MEM_WORKER_PORT, que só o
       # servidor define — sem isso o worker escuta outra fila e nada é gerado (achado em 29/09).
