@@ -43,7 +43,7 @@ services:
       CLAUDE_MEM_GENERATION_DISABLED: "true"
       CLAUDE_MEM_PUBLIC_URL: http://100.90.191.41:37877
       CLAUDE_MEM_USAGE_METERING: "1"
-      CLAUDE_MEM_RATE_LIMIT_PER_MIN: "300"
+      CLAUDE_MEM_RATE_LIMIT_PER_MIN: ${CLAUDE_MEM_RATE_LIMIT_PER_MIN:-300}
     ports:
       - "${HOST_TAILNET_IP:?defina o IP Tailscale do host}:37877:37877"
     volumes:
